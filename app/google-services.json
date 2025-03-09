@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "756463910036",
+    "project_id": "mangmentorder",
+    "storage_bucket": "mangmentorder.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:756463910036:android:ff7e38dd6c030b3b6f4881",
+        "android_client_info": {
+          "package_name": "com.example.mangment_order"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCipMqiaDt0O4m8WbrWsnYyOkwaUZqL-ow"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

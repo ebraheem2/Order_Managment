@@ -5,6 +5,8 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical">
+
+    <!-- Header Section -->
     <LinearLayout
         android:id="@+id/Header"
         android:layout_width="match_parent"
@@ -12,15 +14,27 @@
         android:background="@drawable/layout_bg"
         android:orientation="horizontal"
         android:padding="20dp">
+
+        <!-- Back Arrow View -->
         <View
             android:id="@+id/ArrowBack"
-            android:layout_width="45dp"
-            android:layout_height="45dp"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
             android:background="@drawable/arrow"
             android:layout_marginTop="20dp"
-            />
+            android:clickable="true"
+            android:contentDescription="Back previous Page"
+            android:focusable="true"/>
+
+        <!-- Spacer -->
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"/>
+
+        <!-- Logo Text -->
         <TextView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:text="@string/Logo"
             android:textAlignment="center"
@@ -29,26 +43,31 @@
             android:layout_marginTop="25dp"
             android:textStyle="bold" />
     </LinearLayout>
-    <LinearLayout
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="16dp">
-        <TextView
-            android:id="@+id/textViewShipmentStatus"
-            android:layout_width="wrap_content"
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Shipment Status:"
-            android:textSize="16sp" />
+            android:orientation="vertical"
+            android:padding="16dp">
 
-        <TextView
-            android:id="@+id/textViewRemainingTime"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Remaining Time:"
-            android:textSize="16sp"
-            android:layout_marginTop="8dp" />
+            <TextView
+                android:id="@+id/textViewShipmentStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Shipment Status:"
+                android:textSize="16sp" />
 
-    </LinearLayout>
+            <TextView
+                android:id="@+id/textViewRemainingTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Remaining Time:"
+                android:textSize="16sp"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+    </ScrollView>
+    <!-- Content Section -->
 
 </LinearLayout>

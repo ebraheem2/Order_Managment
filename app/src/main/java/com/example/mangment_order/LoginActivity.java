@@ -27,7 +27,8 @@ public class LoginActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
 
-        // Initialize Firebase Auth instance
+        com.google.firebase.FirebaseApp.initializeApp(this);
+        setContentView(R.layout.activity_login);
         mAuth = FirebaseAuth.getInstance();
 
         // Find views by their IDs

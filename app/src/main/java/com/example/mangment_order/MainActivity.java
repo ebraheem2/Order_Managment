@@ -179,8 +179,8 @@ public class MainActivity extends AppCompatActivity implements OrderAdapter.OnOr
                             updateStatusInDatabase(order, "Arrived in Another Country");
                         }
                     } else if (days >= 0) {
-                        if (!"Shipment".equalsIgnoreCase(order.getStatusOfOrder())) {
-                            updateStatusInDatabase(order, "Shipment");
+                        if (!"Shipped".equalsIgnoreCase(order.getStatusOfOrder())) {
+                            updateStatusInDatabase(order, "Shipped");
                         }
                     }
                 }

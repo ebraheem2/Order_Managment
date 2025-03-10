@@ -26,22 +26,27 @@
         <!-- Logout icon or button -->
         <View
             android:id="@+id/logout"
-            android:layout_width="30dp"
+            android:layout_width="35dp"
             android:layout_height="48dp"
+            android:layout_gravity="center|start"
             android:background="@drawable/ic_logout" />
+
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"/>
+
 
         <!-- Logo text -->
         <TextView
             android:id="@+id/logo"
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            app:layout_constrainedWidth="true"
-            app:layout_constraintRight_toLeftOf="@+id/logo"
+            android:layout_gravity="center"
+            android:layout_marginTop="10dp"
             android:text="@string/Logo"
-            android:textAlignment="center"
             android:textColor="#FFFFFF"
             android:textSize="18sp"
-            android:layout_marginTop="10dp"
             android:textStyle="bold" />
     </LinearLayout>
 
@@ -50,7 +55,7 @@
         android:id="@+id/editTextSearch"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:hint="Search by description"
+        android:hint="@string/search_hint"
         android:padding="12dp"
         android:layout_marginStart="8dp"
         android:layout_marginEnd="8dp"
@@ -65,7 +70,7 @@
         android:id="@+id/titleMyOrders"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="My Orders"
+        android:text="@string/main_title"
         android:textSize="25sp"
         android:textStyle="bold"
         android:layout_marginTop="10dp"
@@ -91,7 +96,7 @@
         android:id="@+id/buttonAddOrder"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:text="Add Order"
+        android:text="@string/add_order"
         android:textSize="19sp"
         android:layout_marginBottom="20dp"
         app:layout_constraintBottom_toBottomOf="parent"

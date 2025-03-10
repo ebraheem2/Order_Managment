@@ -20,8 +20,12 @@
             android:background="@drawable/arrow"
             android:layout_marginTop="20dp"
             />
+        <View
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"/>
         <TextView
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:text="@string/Logo"
             android:textAlignment="center"
@@ -31,74 +35,81 @@
             android:textStyle="bold" />
     </LinearLayout>
 
-
-    <LinearLayout
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="20dp"
-        android:orientation="vertical">
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="match_parent"
-            android:layout_gravity="center_horizontal"
-            android:text="Add Order"
-            android:textSize="25sp"
-            android:textStyle="bold"
-            android:textAlignment="center"/>
-        <EditText
-            android:id="@+id/editTextItemName"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:hint="Item Name"
-            android:layout_marginTop="8dp"/>
-        <EditText
-            android:id="@+id/editTextItemNum"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:hint="Item Number"
-            android:layout_marginTop="8dp"/>
-
-        <EditText
-            android:id="@+id/editTextItemDescription"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:hint="Item Description"
-            android:layout_marginTop="8dp"/>
-
-        <EditText
-            android:id="@+id/editTextSource"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:hint="Source"
-            android:layout_marginTop="8dp"/>
-
-        <EditText
-            android:id="@+id/editTextDestination"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:hint="Destination"
-            android:layout_marginTop="8dp"/>
+        android:layout_height="wrap_content">
 
         <LinearLayout
-            android:orientation="horizontal"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp">
+            android:padding="20dp"
+            android:orientation="vertical">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:layout_gravity="center_horizontal"
+                android:text="Add Order"
+                android:textSize="25sp"
+                android:textStyle="bold"
+                android:textAlignment="center"/>
+            <EditText
+                android:id="@+id/editTextItemName"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="Item Name"
+                android:layout_marginTop="8dp"/>
+            <EditText
+                android:id="@+id/editTextItemNum"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="Item Number"
+                android:layout_marginTop="8dp"/>
 
-            <Button
-                android:id="@+id/buttonSaveOrder"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Save"/>
+            <EditText
+                android:id="@+id/editTextItemDescription"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="Item Description"
+                android:layout_marginTop="8dp"/>
 
-            <Button
-                android:id="@+id/buttonCancel"
-                android:layout_width="0dp"
+            <EditText
+                android:id="@+id/editTextSource"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="Source"
+                android:layout_marginTop="8dp"/>
+
+            <EditText
+                android:id="@+id/editTextDestination"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:hint="Destination"
+                android:layout_marginTop="8dp"/>
+
+            <LinearLayout
+                android:orientation="horizontal"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginLeft="8dp"
-                android:text="Cancel"/>
+                android:layout_marginTop="16dp">
+
+                <Button
+                    android:id="@+id/buttonSaveOrder"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Save"/>
+
+                <Button
+                    android:id="@+id/buttonCancel"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginLeft="8dp"
+                    android:text="Cancel"/>
+            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
+
+    </ScrollView>
+
+
 </LinearLayout>

@@ -8,10 +8,14 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -82,23 +86,27 @@ public class AddOrderActivity extends AppCompatActivity {
         // Query: orders where comboKey == that value
         ordersRef.orderByChild("comboKey")
                 .equalTo(comboKey)
-                .get()
-                .addOnSuccessListener(dataSnapshot -> {
-                    if (dataSnapshot.exists()) {
-                        // Duplicate found
-                        Toast.makeText(AddOrderActivity.this,
-                                "An order with these details already exists!",
-                                Toast.LENGTH_SHORT).show();
-                    } else {
-                        // No duplicates => proceed
-                        saveOrder(comboKey);
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                        if (dataSnapshot.exists()) {
+                            // Duplicate found
+                            Toast.makeText(AddOrderActivity.this,
+                                    "An order with these details already exists!",
+                                    Toast.LENGTH_SHORT).show();
+                        } else {
+                            // No duplicates => proceed
+                            saveOrder(comboKey);
+                        }
                     }
-                })
-                .addOnFailureListener(e -> {
-                    // If we get here, it's likely a permission or indexing error
-                    Toast.makeText(AddOrderActivity.this,
-                            "Error checking duplicates: " + e.getMessage(),
-                            Toast.LENGTH_SHORT).show();
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError databaseError) {
+                        // If we get here, handle the error
+                        Toast.makeText(AddOrderActivity.this,
+                                "Error checking duplicates: " + databaseError.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
                 });
     }
 

@@ -4,7 +4,8 @@
     android:id="@+id/activity_shipment_detail"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:orientation="vertical"
+    android:background="@drawable/gradient_lights">
     <LinearLayout
         android:id="@+id/Header"
         android:layout_width="match_parent"

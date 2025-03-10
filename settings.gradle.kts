@@ -21,4 +21,3 @@ dependencyResolutionManagement {
 
 rootProject.name = "mangment_order"
 include(":app")
- 

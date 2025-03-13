@@ -43,6 +43,7 @@
             android:layout_marginTop="25dp"
             android:textStyle="bold" />
     </LinearLayout>
+
     <ScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -53,21 +54,61 @@
             android:padding="16dp">
 
             <TextView
+                android:id="@+id/textViewShipmentId"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Shipment ID: "
+                android:textSize="16sp" />
+
+            <TextView
+                android:id="@+id/textViewOrderId"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Order ID: "
+                android:textSize="16sp"
+                android:layout_marginTop="8dp"/>
+
+            <TextView
+                android:id="@+id/textViewDepartureDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Departure Date: "
+                android:textSize="16sp"
+                android:layout_marginTop="8dp"/>
+
+            <TextView
+                android:id="@+id/textViewClock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Clock: "
+                android:textSize="16sp"
+                android:layout_marginTop="8dp"/>
+
+            <TextView
+                android:id="@+id/textViewFinalArrivalDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Final Arrival Date: "
+                android:textSize="16sp"
+                android:layout_marginTop="8dp"/>
+
+            <TextView
                 android:id="@+id/textViewShipmentStatus"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Shipment Status:"
-                android:textSize="16sp" />
+                android:text="Shipment Status: "
+                android:textSize="16sp"
+                android:layout_marginTop="8dp"/>
 
             <TextView
                 android:id="@+id/textViewRemainingTime"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Remaining Time:"
+                android:text="Remaining Time: "
                 android:textSize="16sp"
-                android:layout_marginTop="8dp" />
+                android:layout_marginTop="8dp"/>
+
         </LinearLayout>
     </ScrollView>
-    <!-- Content Section -->
 
 </LinearLayout>

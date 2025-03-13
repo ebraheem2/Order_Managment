@@ -41,14 +41,29 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="16dp"
+            android:padding="20dp"
             >
-
-            <EditText
-                android:id="@+id/editTextStatusOfOrderUpdate"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:hint="New Status" />
+                android:layout_height="match_parent"
+                android:orientation="horizontal">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:text="Update Status Order"
+                    android:textStyle="bold"
+                    android:textSize="18sp"/>
+
+                <Spinner
+                    android:id="@+id/editTextStatusOfOrderUpdate"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:textAlignment="center"
+                    android:hint="New Status" />
+            </LinearLayout>
+
 
             <EditText
                 android:id="@+id/editTextOrderName"
@@ -56,11 +71,7 @@
                 android:layout_height="48dp"
                 android:hint="Order Name" />
 
-            <EditText
-                android:id="@+id/editTextItemNumUpdate"
-                android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:hint="Item Number" />
+
 
             <EditText
                 android:id="@+id/editTextItemDescUpdate"
@@ -68,17 +79,45 @@
                 android:layout_height="48dp"
                 android:hint="Item Description" />
 
-            <EditText
-                android:id="@+id/editTextSourceUpdate"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:hint="Source" />
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:text="Soruce"
+                    android:textStyle="bold"
+                    android:textSize="18sp"/>
+                <Spinner
+                    android:id="@+id/SourceSpinner"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="2"
+                    android:textAlignment="center"/>
 
-            <EditText
-                android:id="@+id/editTextDestinationUpdate"
+            </LinearLayout>
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="48dp"
-                android:hint="Destination" />
+                android:layout_height="match_parent"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:textStyle="bold"
+                    android:text="Distination"
+                    android:textSize="18sp"/>
+                <Spinner
+                    android:id="@+id/DestinationSpinner"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="2"
+                    android:textAlignment="center"/>
+            </LinearLayout>
 
             <EditText
                 android:id="@+id/editTextDepartureUpdate"

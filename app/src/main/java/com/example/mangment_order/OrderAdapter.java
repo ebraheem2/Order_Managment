@@ -40,11 +40,12 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
     @Override
     public void onBindViewHolder(@NonNull OrderViewHolder holder, int position) {
         Order order = orders.get(position);
+        holder.textViewName.setText(order.getOrderName());
         holder.textViewOrderId.setText("Order ID: " + order.getOrderId());
         holder.textViewItemDescription.setText(order.getItemDescription());
         holder.textViewStatus.setText("Status: " + order.getStatusOfOrder());
 
-        if ("Arrived & Complete".equalsIgnoreCase(order.getStatusOfOrder())) {
+        if ("Received".equalsIgnoreCase(order.getStatusOfOrder().getStatus())) {
             holder.imageViewStatusIcon.setImageResource(R.drawable.ic_baseline_check_24);
         } else {
             holder.imageViewStatusIcon.setImageResource(R.drawable.ic_baseline_access_time_24);
@@ -66,11 +67,12 @@ public class OrderAdapter extends RecyclerView.Adapter<OrderAdapter.OrderViewHol
 
     public static class OrderViewHolder extends RecyclerView.ViewHolder {
         ImageView imageViewStatusIcon;
-        TextView textViewOrderId, textViewItemDescription, textViewStatus;
+        TextView textViewOrderId, textViewItemDescription, textViewStatus,textViewName;
 
         public OrderViewHolder(@NonNull View itemView, OnOrderListener listener) {
             super(itemView);
             imageViewStatusIcon = itemView.findViewById(R.id.imageViewStatusIcon);
+            textViewName=itemView.findViewById(R.id.textViewName);
             textViewOrderId = itemView.findViewById(R.id.textViewOrderId);
             textViewItemDescription = itemView.findViewById(R.id.textViewItemDescription);
             textViewStatus = itemView.findViewById(R.id.textViewStatus);

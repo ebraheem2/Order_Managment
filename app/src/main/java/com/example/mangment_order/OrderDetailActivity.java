@@ -68,7 +68,7 @@ public class OrderDetailActivity extends AppCompatActivity {
 
         buttonUpdateOrder.setOnClickListener(v -> {
             if (currentOrder == null) return;
-            if ("Arrived & Complete".equalsIgnoreCase(currentOrder.getStatusOfOrder())) {
+            if ("Received".equalsIgnoreCase(currentOrder.getStatusOfOrder().getStatus())) {
                 Toast.makeText(this, "Cannot update a completed order.", Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -81,7 +81,7 @@ public class OrderDetailActivity extends AppCompatActivity {
 
         buttonDeleteOrder.setOnClickListener(v -> {
             if (currentOrder == null) return;
-            if ("Arrived & Complete".equalsIgnoreCase(currentOrder.getStatusOfOrder())) {
+            if ("Received".equalsIgnoreCase(currentOrder.getStatusOfOrder().getStatus())) {
                 Toast.makeText(this, "Cannot delete a completed order.", Toast.LENGTH_SHORT).show();
                 return;
             }
@@ -109,7 +109,7 @@ public class OrderDetailActivity extends AppCompatActivity {
                         textViewStatusOfOrder.setText("Status: " + currentOrder.getStatusOfOrder());
 
                         // If complete => disable update/delete
-                        if ("Arrived & Complete".equalsIgnoreCase(currentOrder.getStatusOfOrder())) {
+                        if ("Received".equalsIgnoreCase(currentOrder.getStatusOfOrder().getStatus())) {
                             buttonUpdateOrder.setEnabled(false);
                             buttonDeleteOrder.setEnabled(false);
                         }

@@ -9,13 +9,13 @@ public class Order {
     private String orderName;
     private String itemNum;
     private String itemDescription;
-    private String source;
+    private Countries source;
     private String dateOfDeparture;
-    private String destination;
+    private Countries destination;
     private String finalArrivalDate;
     private String dateOfReceipt;
-    private String statusOfOrder;
-    private List<String> shipmentIds; // if you want to store shipments
+    private StatusOrders statusOfOrder;
+    private String shipmentId; // if you want to store shipments
 
     public Order() {
         // Required empty constructor for Firebase
@@ -28,13 +28,13 @@ public class Order {
                  String orderName,
                  String itemNum,
                  String itemDescription,
-                 String source,
+                 Countries source,
                  String dateOfDeparture,
-                 String destination,
+                 Countries destination,
                  String finalArrivalDate,
                  String dateOfReceipt,
-                 String statusOfOrder,
-                 List<String> shipmentIds) {
+
+                 String shipmentId) {
         this.orderId = orderId;
         this.comboKey = comboKey;
         this.orderDate = orderDate;
@@ -46,8 +46,8 @@ public class Order {
         this.destination = destination;
         this.finalArrivalDate = finalArrivalDate;
         this.dateOfReceipt = dateOfReceipt;
-        this.statusOfOrder = statusOfOrder;
-        this.shipmentIds = shipmentIds;
+        this.statusOfOrder = StatusOrders.Opened;
+        this.shipmentId = shipmentId;
     }
 
     // Getters/Setters
@@ -69,14 +69,14 @@ public class Order {
     public String getItemDescription() { return itemDescription; }
     public void setItemDescription(String itemDescription) { this.itemDescription = itemDescription; }
 
-    public String getSource() { return source; }
-    public void setSource(String source) { this.source = source; }
+    public Countries getSource() { return source; }
+    public void setSource(Countries source) { this.source = source; }
 
     public String getDateOfDeparture() { return dateOfDeparture; }
     public void setDateOfDeparture(String dateOfDeparture) { this.dateOfDeparture = dateOfDeparture; }
 
-    public String getDestination() { return destination; }
-    public void setDestination(String destination) { this.destination = destination; }
+    public Countries getDestination() { return destination; }
+    public void setDestination(Countries destination) { this.destination = destination; }
 
     public String getFinalArrivalDate() { return finalArrivalDate; }
     public void setFinalArrivalDate(String finalArrivalDate) { this.finalArrivalDate = finalArrivalDate; }
@@ -84,9 +84,9 @@ public class Order {
     public String getDateOfReceipt() { return dateOfReceipt; }
     public void setDateOfReceipt(String dateOfReceipt) { this.dateOfReceipt = dateOfReceipt; }
 
-    public String getStatusOfOrder() { return statusOfOrder; }
-    public void setStatusOfOrder(String statusOfOrder) { this.statusOfOrder = statusOfOrder; }
+    public StatusOrders getStatusOfOrder() { return statusOfOrder; }
+    public void setStatusOfOrder(StatusOrders statusOfOrder) { this.statusOfOrder = statusOfOrder; }
 
-    public List<String> getShipmentIds() { return shipmentIds; }
-    public void setShipmentIds(List<String> shipmentIds) { this.shipmentIds = shipmentIds; }
+    public String getShipmentId() { return shipmentId; }
+    public void setShipmentId(String shipmentId) { this.shipmentId = shipmentId; }
 }

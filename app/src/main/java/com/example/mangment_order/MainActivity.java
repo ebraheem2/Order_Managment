@@ -1,15 +1,24 @@
 package com.example.mangment_order;
 
-import android.content.DialogInterface;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
+import android.os.Handler;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.view.MenuItem;
+import android.util.Log;
 import android.view.View;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.PopupMenu;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -18,19 +27,22 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import com.example.mangment_order.Order;
 import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.Locale;
-import java.util.concurrent.TimeUnit;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity implements OrderAdapter.OnOrderListener {
 
@@ -40,17 +52,77 @@ public class MainActivity extends AppCompatActivity implements OrderAdapter.OnOr
     private View logoutView;
 
     private ArrayList<Order> allOrders = new ArrayList<>();
+    private ArrayList<Shipment> allShipment = new ArrayList<>();
     private ArrayList<Order> filteredList = new ArrayList<>();
-    private OrderAdapter orderAdapter;
+    private ArrayList<Shipment> filteredShipment = new ArrayList<>();
 
-    private DatabaseReference ordersRef;
+    private OrderAdapter orderAdapter;
+    private DatabaseReference ordersRef, shipmentsRef;
     private ValueEventListener ordersListener;
     private SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault());
+
+    // Handler for scheduling periodic updates every hour.
+    private Handler statusUpdateHandler = new Handler();
+    // We'll use a single-thread executor to offload auto-update computations.
+    private ExecutorService executorService = Executors.newSingleThreadExecutor();
+
+    private Runnable statusUpdateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            // Offload heavy computation to background thread.
+            executorService.execute(() -> {
+                // Build a lookup map for shipments by shipmentId.
+                Map<String, Shipment> shipmentMap = new HashMap<>();
+                for (Shipment shipment : allShipment) {
+                    if (shipment.getShipmentId() != null) {
+                        shipmentMap.put(shipment.getShipmentId(), shipment);
+                    }
+                }
+                // For each order that has a shipment, perform auto update in background.
+                for (Order order : allOrders) {
+                    if (order.getShipmentId() != null && shipmentMap.containsKey(order.getShipmentId())) {
+                        if (!order.getStatusOfOrder().equals(StatusOrders.Cancelled)) {
+                            autoUpdateStatus(order, shipmentMap.get(order.getShipmentId()));
+                        }
+                    }
+                }
+            });
+            // Schedule next update in 1 hour.
+            statusUpdateHandler.postDelayed(this, 3600000);
+        }
+    };
+
+    // Use SharedPreferences to persist last update times.
+    private static final String PREFS_NAME = "last_update";
+
+    // BroadcastReceiver to listen for network connectivity changes.
+    private BroadcastReceiver networkReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (isNetworkAvailable(context)) {
+                // Re-attach the database listeners when connectivity returns.
+                attachDatabaseReadListener();
+            }
+        }
+    };
+
+    private boolean isNetworkAvailable(Context context) {
+        ConnectivityManager connectivityManager = (ConnectivityManager)
+                context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        if (connectivityManager != null) {
+            NetworkInfo activeNetwork = connectivityManager.getActiveNetworkInfo();
+            return (activeNetwork != null && activeNetwork.isConnected());
+        }
+        return false;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // (Optional) Enable Firebase offline persistence (best done in Application class)
+        // FirebaseDatabase.getInstance().setPersistenceEnabled(true);
 
         logoutView = findViewById(R.id.logout);
         logoutView.setOnClickListener(v -> {
@@ -59,9 +131,10 @@ public class MainActivity extends AppCompatActivity implements OrderAdapter.OnOr
             finish();
         });
 
-        // Realtime Database reference
         ordersRef = FirebaseDatabase.getInstance("https://mangmentorder-default-rtdb.firebaseio.com/")
                 .getReference("orders");
+        shipmentsRef = FirebaseDatabase.getInstance("https://mangmentorder-default-rtdb.firebaseio.com/")
+                .getReference("shipments");
 
         editTextSearch = findViewById(R.id.editTextSearch);
         recyclerViewOrders = findViewById(R.id.recyclerViewOrders);
@@ -71,17 +144,16 @@ public class MainActivity extends AppCompatActivity implements OrderAdapter.OnOr
         orderAdapter = new OrderAdapter(filteredList, this);
         recyclerViewOrders.setAdapter(orderAdapter);
 
-        buttonAddOrder.setOnClickListener(v -> {
-            startActivity(new Intent(MainActivity.this, AddOrderActivity.class));
-        });
+        buttonAddOrder.setOnClickListener(v ->
+                startActivity(new Intent(MainActivity.this, AddOrderActivity.class))
+        );
 
-        // Search
         editTextSearch.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int st, int c, int a){}
-            @Override public void onTextChanged(CharSequence s, int st, int b, int c){
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
                 filterOrders(s.toString());
             }
-            @Override public void afterTextChanged(Editable s){}
+            @Override public void afterTextChanged(Editable s) { }
         });
     }
 
@@ -89,124 +161,209 @@ public class MainActivity extends AppCompatActivity implements OrderAdapter.OnOr
     protected void onStart() {
         super.onStart();
         attachDatabaseReadListener();
+        statusUpdateHandler.post(statusUpdateRunnable);
+        registerReceiver(networkReceiver, new IntentFilter(ConnectivityManager.CONNECTIVITY_ACTION));
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        detachDatabaseReadListener();
-    }
-
-    private void attachDatabaseReadListener() {
-        if (ordersListener == null) {
-            ordersListener = new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot snapshot) {
-                    allOrders.clear();
-                    for (DataSnapshot child : snapshot.getChildren()) {
-                        Order order = child.getValue(Order.class);
-                        if (order != null) {
-                            // Attempt auto-update status
-                            autoUpdateStatus(order);
-                            allOrders.add(order);
-                        }
-                    }
-                    filterOrders(editTextSearch.getText().toString());
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                    Toast.makeText(MainActivity.this, "Failed to read orders: " + error.getMessage(),
-                            Toast.LENGTH_SHORT).show();
-                }
-            };
-            ordersRef.addValueEventListener(ordersListener);
-        }
-    }
-
-    private void detachDatabaseReadListener() {
         if (ordersListener != null) {
             ordersRef.removeEventListener(ordersListener);
             ordersListener = null;
         }
+        statusUpdateHandler.removeCallbacks(statusUpdateRunnable);
+        unregisterReceiver(networkReceiver);
+    }
+
+    private void attachDatabaseReadListener() {
+        ordersListener = new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot ordersSnapshot) {
+                allOrders.clear();
+                for (DataSnapshot child : ordersSnapshot.getChildren()) {
+                    Order order = child.getValue(Order.class);
+                    if (order != null) {
+                        allOrders.add(order);
+                    }
+                }
+                shipmentsRef.addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot shipmentsSnapshot) {
+                        allShipment.clear();
+                        for (DataSnapshot child : shipmentsSnapshot.getChildren()) {
+                            Shipment shipment = child.getValue(Shipment.class);
+                            if (shipment != null) {
+                                allShipment.add(shipment);
+                            }
+                        }
+                        // Immediately update statuses after data load.
+                        Map<String, Shipment> shipmentMap = new HashMap<>();
+                        for (Shipment shipment : allShipment) {
+                            if (shipment.getShipmentId() != null) {
+                                shipmentMap.put(shipment.getShipmentId(), shipment);
+                            }
+                        }
+                        for (Order order : allOrders) {
+                            if (order.getShipmentId() != null && shipmentMap.containsKey(order.getShipmentId())) {
+                                if (!order.getStatusOfOrder().equals(StatusOrders.Cancelled)) {
+                                    autoUpdateStatus(order, shipmentMap.get(order.getShipmentId()));
+                                }
+                            }
+                        }
+                        filterOrders(editTextSearch.getText().toString());
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError error) {
+                        Toast.makeText(MainActivity.this,
+                                "Failed to read shipments: " + error.getMessage(),
+                                Toast.LENGTH_SHORT).show();
+                    }
+                });
+            }
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Toast.makeText(MainActivity.this,
+                        "Failed to read orders: " + error.getMessage(),
+                        Toast.LENGTH_SHORT).show();
+            }
+        };
+        ordersRef.addValueEventListener(ordersListener);
     }
 
     private void filterOrders(String query) {
         filteredList.clear();
+        filteredShipment.clear();
         String lower = (query == null) ? "" : query.toLowerCase().trim();
-        for (Order o : allOrders) {
+        for (Order order : allOrders) {
             if (lower.isEmpty()
-                    || (o.getOrderId() != null && o.getOrderId().toLowerCase().contains(lower))
-                    || (o.getItemDescription() != null && o.getItemDescription().toLowerCase().contains(lower))
-                    || (o.getOrderName() != null && o.getOrderName().toLowerCase().contains(lower))
-                    || (o.getItemNum() != null && o.getItemNum().toLowerCase().contains(lower))
-                    || (o.getSource() != null && o.getSource().toLowerCase().contains(lower))
-                    || (o.getDestination() != null && o.getDestination().toLowerCase().contains(lower))
+                    || (order.getOrderId() != null && order.getOrderId().toLowerCase().contains(lower))
+                    || (order.getItemDescription() != null && order.getItemDescription().toLowerCase().contains(lower))
+                    || (order.getOrderName() != null && order.getOrderName().toLowerCase().contains(lower))
+                    || (order.getItemNum() != null && order.getItemNum().toLowerCase().contains(lower))
+                    || (order.getSource() != null && order.getSource().toString().toLowerCase().contains(lower))
+                    || (order.getDestination() != null && order.getDestination().toString().toLowerCase().contains(lower))
             ) {
-                filteredList.add(o);
+                filteredList.add(order);
+            }
+        }
+        // Build filtered shipments list.
+        for (Shipment shipment : allShipment) {
+            for (Order order : filteredList) {
+                if (order.getShipmentId() != null && order.getShipmentId().equals(shipment.getShipmentId())) {
+                    filteredShipment.add(shipment);
+                    break;
+                }
             }
         }
         orderAdapter.notifyDataSetChanged();
     }
 
-    private void autoUpdateStatus(Order order) {
-        // If "Arrived & Complete" => do nothing
-        if ("Arrived & Complete".equalsIgnoreCase(order.getStatusOfOrder())) {
+    /**
+     * Auto-update status runs in the background.
+     * It checks receipt, departure, and final arrival conditions and posts Firebase updates on the UI thread.
+     */
+    private void autoUpdateStatus(final Order order, final Shipment shipment) {
+        if (shipment == null || shipment.getStatusOfShipment() == null) {
+            Log.e("autoUpdateStatus", "Shipment or its status is null; skipping update.");
             return;
         }
-        try {
-            Date now = new Date();
+        if (order.getStatusOfOrder().equals(StatusOrders.Cancelled)) {
+            return;
+        }
+        final String key = order.getOrderId() + "_" + shipment.getShipmentId();
+        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+        long lastUpdate = prefs.getLong(key, 0);
+        final long nowMillis = System.currentTimeMillis();
 
-            // If finalArrivalDate < now => "Arrived & Complete"
-            if (order.getFinalArrivalDate() != null) {
-                Date finalArrival = sdf.parse(order.getFinalArrivalDate());
-                if (finalArrival != null && now.after(finalArrival)) {
-                    if (!"Arrived & Complete".equalsIgnoreCase(order.getStatusOfOrder())) {
-                        updateStatusInDatabase(order, "Arrived & Complete");
+        try {
+            final Date now = new Date();
+            // Priority 1: Receipt condition.
+            if (order.getDateOfReceipt() != null) {
+                Date receiptDate = sdf.parse(order.getDateOfReceipt());
+                if (receiptDate != null && now.after(receiptDate)) {
+                    if (!shipment.getStatusOfShipment().equals(StatusShipment.DELIVERED)
+                            || !order.getStatusOfOrder().equals(StatusOrders.Received)) {
+                        runOnUiThread(() -> {
+                            updateStatusInDatabase(shipment, StatusShipment.DELIVERED.toString(),
+                                    order, StatusOrders.Received.getStatus());
+                            prefs.edit().putLong(key, nowMillis).apply();
+                        });
                     }
                     return;
                 }
             }
-            // If departure + 3 days => "Arrived in Another Country"
+            // Priority 2: Departure condition.
             if (order.getDateOfDeparture() != null) {
-                Date departure = sdf.parse(order.getDateOfDeparture());
-                if (departure != null) {
-                    long diff = now.getTime() - departure.getTime();
-                    long days = TimeUnit.MILLISECONDS.toDays(diff);
-
-                    if (days >= 3) {
-                        if (!"Arrived in Another Country".equalsIgnoreCase(order.getStatusOfOrder())) {
-                            updateStatusInDatabase(order, "Arrived in Another Country");
-                        }
-                    } else if (days >= 0) {
-                        if (!"Shipped".equalsIgnoreCase(order.getStatusOfOrder())) {
-                            updateStatusInDatabase(order, "Shipped");
+                Date departureDate = sdf.parse(order.getDateOfDeparture());
+                if (departureDate != null && now.after(departureDate)) {
+                    // For departure branch: if shipment ordinal < 5, then update.
+                    if (shipment.getStatusOfShipment().ordinal() < 5) {
+                        final StatusShipment expectedShipmentStatus = StatusShipment.values()[shipment.getStatusOfShipment().ordinal() + 1];
+                        if (order.getStatusOfOrder().ordinal() < 2) {
+                            final StatusOrders expectedOrderStatus = StatusOrders.values()[order.getStatusOfOrder().ordinal() + 1];
+                            runOnUiThread(() -> {
+                                updateStatusInDatabase(shipment, expectedShipmentStatus.toString(),
+                                        order, expectedOrderStatus.getStatus());
+                                prefs.edit().putLong(key, nowMillis).apply();
+                            });
+                            return;
                         }
                     }
                 }
             }
-        } catch (Exception e) {
+            // Priority 3: Arrival condition.
+            if (order.getFinalArrivalDate() != null) {
+                Date arrivalDate = sdf.parse(order.getFinalArrivalDate());
+                Date receiptDate = (order.getDateOfReceipt() != null) ? sdf.parse(order.getDateOfReceipt()) : null;
+                if (arrivalDate != null && now.after(arrivalDate) && (receiptDate == null || now.before(receiptDate))) {
+                    if (shipment.getStatusOfShipment().ordinal() < 8) {
+                        final StatusShipment expectedShipmentStatus = StatusShipment.values()[shipment.getStatusOfShipment().ordinal() + 1];
+                        runOnUiThread(() -> {
+                            updateStatusInDatabase(shipment, expectedShipmentStatus.toString(),
+                                    order, StatusOrders.Arrive_To_Destination.getStatus());
+                            prefs.edit().putLong(key, nowMillis).apply();
+                        });
+                        return;
+                    }
+                }
+            }
+            // If none of the conditions are met, no update is performed.
+        } catch (ParseException e) {
             e.printStackTrace();
         }
     }
 
-    private void updateStatusInDatabase(Order order, String newStatus) {
-        if (order.getOrderId() == null) return;
-        if (newStatus.equalsIgnoreCase(order.getStatusOfOrder())) return;
+    /**
+     * Updates the statuses in Firebase if they differ from the current ones.
+     */
+    private void updateStatusInDatabase(Shipment shipment, String newStatus, Order order, String newStatusOrder) {
+        if (shipment.getShipmentId() == null || order.getOrderId() == null) return;
+        boolean shipmentAlreadyUpdated = newStatus.equalsIgnoreCase(shipment.getStatusOfShipment().toString());
+        boolean orderAlreadyUpdated = newStatusOrder.equalsIgnoreCase(order.getStatusOfOrder().toString());
+        if (shipmentAlreadyUpdated && orderAlreadyUpdated) return;
 
-        ordersRef.child(order.getOrderId()).child("statusOfOrder").setValue(newStatus)
-                .addOnFailureListener(e -> {
-                    // Log or toast
-                });
-        // We do not manually refresh because the ValueEventListener will get triggered again
+        if (!shipmentAlreadyUpdated) {
+            shipmentsRef.child(shipment.getShipmentId()).child("statusOfShipment").setValue(newStatus)
+                    .addOnSuccessListener(aVoid ->
+                            Toast.makeText(MainActivity.this, "Status Shipment updated!", Toast.LENGTH_SHORT).show())
+                    .addOnFailureListener(e ->
+                            Toast.makeText(MainActivity.this, "Failed to update shipment status.", Toast.LENGTH_SHORT).show());
+        }
+        if (!orderAlreadyUpdated) {
+            ordersRef.child(order.getOrderId()).child("statusOfOrder").setValue(newStatusOrder)
+                    .addOnSuccessListener(aVoid ->
+                            Toast.makeText(MainActivity.this, "Status Order updated!", Toast.LENGTH_SHORT).show())
+                    .addOnFailureListener(e ->
+                            Toast.makeText(MainActivity.this, "Failed to update order status.", Toast.LENGTH_SHORT).show());
+        }
     }
 
     @Override
     public void onOrderClick(int position) {
         Order selected = filteredList.get(position);
-        // Show a popup for "Order Details" or "Shipment Details"
         View anchorView = recyclerViewOrders.findViewHolderForAdapterPosition(position).itemView;
-
         PopupMenu popup = new PopupMenu(this, anchorView);
         popup.getMenu().add("Order Details");
         popup.getMenu().add("Shipment Details");
@@ -230,15 +387,34 @@ public class MainActivity extends AppCompatActivity implements OrderAdapter.OnOr
     @Override
     public void onOrderLongClick(int position) {
         Order selected = filteredList.get(position);
+        // Find matching shipment using the filtered shipments list.
+        Shipment tempShipment = null;
+        for (Shipment ship : filteredShipment) {
+            if (selected.getShipmentId() != null && selected.getShipmentId().equals(ship.getShipmentId())) {
+                tempShipment = ship;
+                break;
+            }
+        }
+        final Shipment selectedShipment = tempShipment;
+        if (selectedShipment == null) {
+            Toast.makeText(this, "No shipment found for this order.", Toast.LENGTH_SHORT).show();
+            return;
+        }
         View anchorView = recyclerViewOrders.findViewHolderForAdapterPosition(position).itemView;
         PopupMenu popup = new PopupMenu(this, anchorView);
+        // Existing update options:
+        popup.getMenu().add("UpdateOrder");
         popup.getMenu().add("Update To Complete");
-        popup.getMenu().add("Update");
+        popup.getMenu().add("Update Shipment Status");
         popup.getMenu().add("Delete");
+        // New options:
+        popup.getMenu().add("Cancel Order");
+        popup.getMenu().add("Resume Order");
 
         popup.setOnMenuItemClickListener(item -> {
-            if ("Update".equals(item.getTitle()) || "Update To Complete".equals(item.getTitle())) {
-                if ("Arrived & Complete".equalsIgnoreCase(selected.getStatusOfOrder())) {
+            String title = item.getTitle().toString();
+            if ("UpdateOrder".equals(title) || "Update To Complete".equals(title)) {
+                if ("Received".equalsIgnoreCase(selected.getStatusOfOrder().getStatus())) {
                     new AlertDialog.Builder(this)
                             .setTitle("Order is Complete")
                             .setMessage("This order can no longer be updated or deleted.")
@@ -246,37 +422,58 @@ public class MainActivity extends AppCompatActivity implements OrderAdapter.OnOr
                             .show();
                     return false;
                 }
-                if("Update".equals(item.getTitle())) {
-                    // Open UpdateOrderActivity
+                if ("UpdateOrder".equals(title)) {
                     Intent intent = new Intent(MainActivity.this, UpdateOrderActivity.class);
                     intent.putExtra("orderId", selected.getOrderId());
                     startActivity(intent);
-                }
-                else{
-                    // **Set the STATUS** to "Arrived & Complete" (not the itemDescription)
-                    selected.setStatusOfOrder("Arrived & Complete");
+                } else {  // Update To Complete
+                    selected.setStatusOfOrder(StatusOrders.Received);
                     selected.setOrderDate(selected.getFinalArrivalDate());
-                    // Write the updated order to the database
                     ordersRef.child(selected.getOrderId()).setValue(selected)
-                            .addOnSuccessListener(aVoid -> {
-                                Toast.makeText(MainActivity.this, "Order status updated!", Toast.LENGTH_SHORT).show();
-                                // No need to call finish();
-                                // The ValueEventListener will refresh the list automatically
-                            })
-                            .addOnFailureListener(e -> {
-                                Toast.makeText(MainActivity.this, "Update failed.", Toast.LENGTH_SHORT).show();
-                            });
+                            .addOnSuccessListener(aVoid ->
+                                    Toast.makeText(MainActivity.this, "Order status updated!", Toast.LENGTH_SHORT).show())
+                            .addOnFailureListener(e ->
+                                    Toast.makeText(MainActivity.this, "Update failed.", Toast.LENGTH_SHORT).show());
                 }
                 return true;
-            }
-            else if ("Delete".equals(item.getTitle())) {
-                // Confirm delete
+            } else if ("Update Shipment Status".equals(title)) {
+                showUpdateStatusDialog(selected, selectedShipment);
+                return true;
+            } else if ("Delete".equals(title)) {
                 new AlertDialog.Builder(this)
                         .setTitle("Delete Order")
                         .setMessage("Are you sure?")
-                        .setPositiveButton("Yes", (dialog, which) -> deleteOrder(selected))
+                        .setPositiveButton("Yes", (dialog, which) -> deleteOrder(selected, selectedShipment))
                         .setNegativeButton("No", null)
                         .show();
+                return true;
+            } else if ("Cancel Order".equals(title)) {
+                selected.setStatusOfOrder(StatusOrders.Cancelled);
+                ordersRef.child(selected.getOrderId()).setValue(selected)
+                        .addOnSuccessListener(aVoid -> {
+                            String key = selected.getOrderId() + "_" + selectedShipment.getShipmentId();
+                            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                            prefs.edit().putLong(key, System.currentTimeMillis()).apply();
+                            Toast.makeText(MainActivity.this, "Order cancelled!", Toast.LENGTH_SHORT).show();
+                        })
+                        .addOnFailureListener(e ->
+                                Toast.makeText(MainActivity.this, "Failed to cancel order.", Toast.LENGTH_SHORT).show());
+                return true;
+            } else if ("Resume Order".equals(title)) {
+                if (!selected.getStatusOfOrder().equals(StatusOrders.Cancelled)) {
+                    Toast.makeText(MainActivity.this, "Order is not cancelled.", Toast.LENGTH_SHORT).show();
+                    return false;
+                }
+                String key = selected.getOrderId() + "_" + selectedShipment.getShipmentId();
+                SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+                long cancelTime = prefs.getLong(key, 0);
+                selected.setStatusOfOrder(StatusOrders.Opened);
+                prefs.edit().remove(key).apply();
+                ordersRef.child(selected.getOrderId()).setValue(selected)
+                        .addOnSuccessListener(aVoid ->
+                                Toast.makeText(MainActivity.this, "Order resumed!", Toast.LENGTH_SHORT).show())
+                        .addOnFailureListener(e ->
+                                Toast.makeText(MainActivity.this, "Failed to resume order.", Toast.LENGTH_SHORT).show());
                 return true;
             }
             return false;
@@ -284,14 +481,108 @@ public class MainActivity extends AppCompatActivity implements OrderAdapter.OnOr
         popup.show();
     }
 
+    private void showUpdateStatusDialog(final Order order, final Shipment shipment) {
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle("Update Shipment & Order Status");
 
-    private void deleteOrder(Order order) {
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_update_status, null);
+        builder.setView(dialogView);
+
+        Spinner spinnerShipmentStatus = dialogView.findViewById(R.id.spinnerShipmentStatus);
+        Spinner spinnerOrderStatus = dialogView.findViewById(R.id.spinnerOrderStatus);
+
+        ArrayAdapter<StatusOrders> orderAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, StatusOrders.values());
+        orderAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerOrderStatus.setAdapter(orderAdapter);
+        spinnerOrderStatus.setSelection(order.getStatusOfOrder().ordinal());
+
+        StatusOrders initialOrderStatus = (StatusOrders) spinnerOrderStatus.getSelectedItem();
+        StatusShipment[] allowedStatuses = getAllowedShipmentStatuses(initialOrderStatus);
+        ArrayAdapter<StatusShipment> shipmentAdapter = new ArrayAdapter<>(this,
+                android.R.layout.simple_spinner_item, allowedStatuses);
+        shipmentAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerShipmentStatus.setAdapter(shipmentAdapter);
+        for (int i = 0; i < allowedStatuses.length; i++) {
+            if (allowedStatuses[i].equals(shipment.getStatusOfShipment())) {
+                spinnerShipmentStatus.setSelection(i);
+                break;
+            }
+        }
+
+        spinnerOrderStatus.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                StatusOrders selectedOrderStatus = (StatusOrders) parent.getItemAtPosition(position);
+                StatusShipment[] newAllowed = getAllowedShipmentStatuses(selectedOrderStatus);
+                ArrayAdapter<StatusShipment> newAdapter = new ArrayAdapter<>(MainActivity.this,
+                        android.R.layout.simple_spinner_item, newAllowed);
+                newAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                spinnerShipmentStatus.setAdapter(newAdapter);
+                if (newAllowed.length > 0) {
+                    spinnerShipmentStatus.setSelection(0);
+                }
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) { }
+        });
+
+        builder.setNegativeButton("Cancel", null);
+        builder.setPositiveButton("Update", null);
+        AlertDialog dialog = builder.create();
+        dialog.show();
+
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
+            StatusShipment newShipmentStatus = (StatusShipment) spinnerShipmentStatus.getSelectedItem();
+            StatusOrders newOrderStatus = (StatusOrders) spinnerOrderStatus.getSelectedItem();
+            if (newOrderStatus == StatusOrders.Arrive_To_Destination) {
+                try {
+                    Date now = new Date();
+                    Date finalArrival = sdf.parse(order.getFinalArrivalDate());
+                } catch (ParseException e) {
+                    e.printStackTrace();
+                }
+            }
+            updateStatusInDatabase(shipment, newShipmentStatus.toString(),
+                    order, newOrderStatus.getStatus());
+            dialog.dismiss();
+        });
+    }
+
+    private StatusShipment[] getAllowedShipmentStatuses(StatusOrders orderStatus) {
+        if (orderStatus == StatusOrders.Opened) {
+            return new StatusShipment[]{StatusShipment.PENDING};
+        } else if (orderStatus == StatusOrders.Ready_For_Shipment || orderStatus == StatusOrders.Shipped) {
+            ArrayList<StatusShipment> list = new ArrayList<>();
+            for (StatusShipment s : StatusShipment.values()) {
+                if (s.ordinal() >= 1 && s.ordinal() <= 4) {
+                    list.add(s);
+                }
+            }
+            return list.toArray(new StatusShipment[0]);
+        } else if (orderStatus == StatusOrders.Arrive_To_Destination) {
+            ArrayList<StatusShipment> list = new ArrayList<>();
+            for (StatusShipment s : StatusShipment.values()) {
+                if (s.ordinal() >= 5 && s.ordinal() <= 7) {
+                    list.add(s);
+                }
+            }
+            return list.toArray(new StatusShipment[0]);
+        } else if (orderStatus == StatusOrders.Received) {
+            return new StatusShipment[]{StatusShipment.DELIVERED};
+        } else {
+            return StatusShipment.values();
+        }
+    }
+
+    private void deleteOrder(Order order, Shipment ship) {
         ordersRef.child(order.getOrderId()).removeValue()
-                .addOnSuccessListener(aVoid -> {
-                    Toast.makeText(MainActivity.this, "Order deleted!", Toast.LENGTH_SHORT).show();
-                })
+                .addOnSuccessListener(aVoid ->
+                        Toast.makeText(MainActivity.this, "Order deleted!", Toast.LENGTH_SHORT).show())
                 .addOnFailureListener(e ->
-                        Toast.makeText(MainActivity.this, "Failed to delete: " + e.getMessage(), Toast.LENGTH_SHORT).show()
-                );
+                        Toast.makeText(MainActivity.this, "Failed to delete order: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+        shipmentsRef.child(ship.getShipmentId()).removeValue()
+                .addOnSuccessListener(aVoid ->
+                        Toast.makeText(MainActivity.this, "Shipment deleted!", Toast.LENGTH_SHORT).show())
+                .addOnFailureListener(e ->
+                        Toast.makeText(MainActivity.this, "Failed to delete shipment: " + e.getMessage(), Toast.LENGTH_SHORT).show());
     }
 }

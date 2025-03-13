@@ -45,6 +45,7 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-database")
     implementation("com.google.firebase:firebase-analytics")
+    implementation ("androidx.work:work-runtime:2.7.1")
 
     // Testing dependencies
     testImplementation("junit:junit:4.13.2")

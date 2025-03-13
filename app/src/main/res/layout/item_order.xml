@@ -18,16 +18,20 @@
             android:layout_height="24dp"
             android:layout_marginRight="8dp"
             android:src="@drawable/ic_baseline_access_time_24"/>
-
         <TextView
-            android:id="@+id/textViewOrderId"
+            android:id="@+id/textViewName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Order ID"
-            android:textSize="16sp"
-            android:textStyle="bold" />
+            android:text="Name"
+            android:textSize="20sp"
+            android:textStyle="bold"/>
     </LinearLayout>
-
+    <TextView
+        android:id="@+id/textViewOrderId"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Order ID"
+        android:textSize="14sp" />
     <TextView
         android:id="@+id/textViewItemDescription"
         android:layout_width="wrap_content"
@@ -36,6 +40,7 @@
         android:textSize="14sp"
         android:layout_marginTop="4dp"
         android:textColor="#777"/>
+
 
     <TextView
         android:id="@+id/textViewStatus"

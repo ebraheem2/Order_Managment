@@ -4,23 +4,33 @@ public class Shipment {
     private String shipmentId;        // The unique key in RTDB
     private String orderId;           // (Optional) which order this belongs to
     private String departureDate;
+    private String clock;
     private String finalArrivalDate;
-    private String statusOfShipment;  // e.g. "Pending", "In-Transit", "Arrived"
+    private StatusShipment statusOfShipment;  // e.g. "Pending", "In-Transit", "Arrived"
 
     public Shipment() {
         // Needed for Firebase deserialization
     }
 
+    public String getClock() {
+        return clock;
+    }
+
+    public void setClock(String clock) {
+        this.clock = clock;
+    }
+
     public Shipment(String shipmentId,
                     String orderId,
                     String departureDate,
-                    String finalArrivalDate,
-                    String statusOfShipment) {
+                    String clock,
+                    String finalArrivalDate) {
         this.shipmentId = shipmentId;
         this.orderId = orderId;
         this.departureDate = departureDate;
+        this.clock=clock;
         this.finalArrivalDate = finalArrivalDate;
-        this.statusOfShipment = statusOfShipment;
+        this.statusOfShipment = StatusShipment.PENDING;
     }
 
     // Getters / Setters
@@ -36,6 +46,11 @@ public class Shipment {
     public String getFinalArrivalDate() { return finalArrivalDate; }
     public void setFinalArrivalDate(String finalArrivalDate) { this.finalArrivalDate = finalArrivalDate; }
 
-    public String getStatusOfShipment() { return statusOfShipment; }
-    public void setStatusOfShipment(String statusOfShipment) { this.statusOfShipment = statusOfShipment; }
+    public StatusShipment getStatusOfShipment() {
+        return statusOfShipment;
+    }
+
+    public void setStatusOfShipment(StatusShipment statusOfShipment) {
+        this.statusOfShipment = statusOfShipment;
+    }
 }

@@ -6,11 +6,13 @@ import android.view.View;
 import android.widget.TextView;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -18,8 +20,9 @@ import java.util.concurrent.TimeUnit;
 
 public class ShipmentDetailActivity extends AppCompatActivity {
 
-    private TextView textViewShipmentStatus, textViewRemainingTime;
-    private DatabaseReference ordersRef;
+    private TextView textViewShipmentId, textViewOrderId, textViewDepartureDate, textViewClock,
+            textViewFinalArrivalDate, textViewShipmentStatus, textViewRemainingTime;
+    private DatabaseReference shipmentsRef;
     private View arrow;
 
     // Expected date format (adjust if needed)
@@ -31,6 +34,11 @@ public class ShipmentDetailActivity extends AppCompatActivity {
         setContentView(R.layout.activity_shipment_detail);
 
         // Initialize views
+        textViewShipmentId = findViewById(R.id.textViewShipmentId);
+        textViewOrderId = findViewById(R.id.textViewOrderId);
+        textViewDepartureDate = findViewById(R.id.textViewDepartureDate);
+        textViewClock = findViewById(R.id.textViewClock);
+        textViewFinalArrivalDate = findViewById(R.id.textViewFinalArrivalDate);
         textViewShipmentStatus = findViewById(R.id.textViewShipmentStatus);
         textViewRemainingTime = findViewById(R.id.textViewRemainingTime);
         arrow = findViewById(R.id.ArrowBack);
@@ -45,12 +53,12 @@ public class ShipmentDetailActivity extends AppCompatActivity {
             }
         });
 
-        // Initialize Firebase Database reference for "orders"
-        ordersRef = FirebaseDatabase
+        // Initialize Firebase Database reference for "shipments"
+        shipmentsRef = FirebaseDatabase
                 .getInstance("https://mangmentorder-default-rtdb.firebaseio.com/")
-                .getReference("orders");
+                .getReference("shipments");
 
-        // Retrieve the order ID from the intent extras and load details if available
+        // Retrieve the order ID from the intent extras (passed from MainActivity)
         String orderId = getIntent().getStringExtra("orderId");
         if (orderId != null) {
             loadShipmentDetails(orderId);
@@ -58,45 +66,59 @@ public class ShipmentDetailActivity extends AppCompatActivity {
     }
 
     private void loadShipmentDetails(String orderId) {
-        ordersRef.child(orderId).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot snapshot) {
-                if (snapshot.exists()) {
-                    Order order = snapshot.getValue(Order.class);
-                    if (order != null) {
-                        // Set shipment status text
-                        textViewShipmentStatus.setText("Shipment Status: " + order.getStatusOfOrder());
+        // Query shipments where the "orderId" field matches the passed orderId
+        shipmentsRef.orderByChild("orderId").equalTo(orderId)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(DataSnapshot snapshot) {
+                        if (snapshot.exists()) {
+                            // Assuming one shipment per order. Iterate over results.
+                            for (DataSnapshot child : snapshot.getChildren()) {
+                                Shipment shipment = child.getValue(Shipment.class);
+                                if (shipment != null) {
+                                    // Populate all shipment details
+                                    textViewShipmentId.setText("Shipment ID: " + shipment.getShipmentId());
+                                    textViewOrderId.setText("Order ID: " + shipment.getOrderId());
+                                    textViewDepartureDate.setText("Departure Date: " + shipment.getDepartureDate());
+                                    textViewClock.setText("Clock: " + shipment.getClock());
+                                    textViewFinalArrivalDate.setText("Final Arrival Date: " + shipment.getFinalArrivalDate());
+                                    textViewShipmentStatus.setText("Shipment Status: " + shipment.getStatusOfShipment());
 
-                        // Compute remaining time until final arrival date
-                        String finalDateStr = order.getFinalArrivalDate();
-                        if (finalDateStr != null) {
-                            try {
-                                Date finalDate = sdf.parse(finalDateStr);
-                                Date now = new Date();
-                                if (finalDate != null) {
-                                    long diff = finalDate.getTime() - now.getTime();
-                                    if (diff <= 0) {
-                                        textViewRemainingTime.setText("Remaining Time: Already Arrived");
-                                    } else {
-                                        long days = TimeUnit.MILLISECONDS.toDays(diff);
-                                        long hours = TimeUnit.MILLISECONDS.toHours(diff) % 24;
-                                        textViewRemainingTime.setText("Remaining Time: " + days + " days, " + hours + " hours");
+                                    // Compute remaining time until final arrival date
+                                    String finalDateStr = shipment.getFinalArrivalDate();
+                                    if (finalDateStr != null) {
+                                        try {
+                                            Date finalDate = sdf.parse(finalDateStr);
+                                            Date now = new Date();
+                                            if (finalDate != null) {
+                                                long diff = finalDate.getTime() - now.getTime();
+                                                if (diff <= 0) {
+                                                    textViewRemainingTime.setText("Remaining Time: Already Arrived");
+                                                } else {
+                                                    long days = TimeUnit.MILLISECONDS.toDays(diff);
+                                                    long hours = TimeUnit.MILLISECONDS.toHours(diff) % 24;
+                                                    textViewRemainingTime.setText("Remaining Time: " + days + " days, " + hours + " hours");
+                                                }
+                                            }
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                            textViewRemainingTime.setText("Error parsing date");
+                                        }
                                     }
+                                    // Break after processing the first shipment found
+                                    break;
                                 }
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                                textViewRemainingTime.setText("Error parsing date");
                             }
+                        } else {
+                            textViewShipmentStatus.setText("No shipment details found for this order.");
                         }
                     }
-                }
-            }
 
-            @Override
-            public void onCancelled(DatabaseError error) {
-                // Handle potential errors here
-            }
-        });
+                    @Override
+                    public void onCancelled(DatabaseError error) {
+                        // Handle potential errors here if needed.
+                    }
+                });
     }
 
     @Override

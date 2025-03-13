@@ -3,9 +3,12 @@ package com.example.mangment_order;
 import android.content.Intent;
 import android.os.Bundle;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -18,17 +21,16 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Random;
 
 public class AddOrderActivity extends AppCompatActivity {
 
-    private EditText editTextItemNum, editTextItemDescription, editTextSource,
-            editTextDestination, editTextNameOrder;
+    private EditText editTextItemDescription, editTextNameOrder;
+    private Spinner SoruceCountries, DestinationCountries;
     private Button buttonSaveOrder, buttonCancel;
     private View arrow;
 
@@ -40,26 +42,28 @@ public class AddOrderActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_add_order);
 
-        // Initialize Realtime Database references
-        ordersRef = FirebaseDatabase.getInstance(
-                "https://mangmentorder-default-rtdb.firebaseio.com/"
-        ).getReference("orders");
+        // Initialize Firebase Database references.
+        ordersRef = FirebaseDatabase.getInstance("https://mangmentorder-default-rtdb.firebaseio.com/").getReference("orders");
+        shipmentsRef = FirebaseDatabase.getInstance("https://mangmentorder-default-rtdb.firebaseio.com/").getReference("shipments");
 
-        shipmentsRef = FirebaseDatabase.getInstance(
-                "https://mangmentorder-default-rtdb.firebaseio.com/"
-        ).getReference("shipments");
+        SoruceCountries = findViewById(R.id.editTextSource);
+        DestinationCountries = findViewById(R.id.editTextDestination);
+        Countries[] countries = Countries.values();
+        ArrayAdapter<Countries> adapter = new ArrayAdapter<>(this, R.layout.my_spinner_item, countries);
+        adapter.setDropDownViewResource(R.layout.my_spinner_dropdown_item);
+        ArrayAdapter<Countries> adapter2 = new ArrayAdapter<>(this, R.layout.my_spinner_item, countries);
+        adapter2.setDropDownViewResource(R.layout.my_spinner_dropdown_item);
+        SoruceCountries.setAdapter(adapter);
+        DestinationCountries.setAdapter(adapter2);
 
-        editTextItemNum = findViewById(R.id.editTextItemNum);
         editTextItemDescription = findViewById(R.id.editTextItemDescription);
-        editTextSource = findViewById(R.id.editTextSource);
         editTextNameOrder = findViewById(R.id.editTextItemName);
-        editTextDestination = findViewById(R.id.editTextDestination);
 
         arrow = findViewById(R.id.ArrowBack);
         buttonSaveOrder = findViewById(R.id.buttonSaveOrder);
         buttonCancel = findViewById(R.id.buttonCancel);
 
-        // Arrow back
+        // Arrow back navigates to MainActivity.
         arrow.setOnClickListener(v -> {
             startActivity(new Intent(AddOrderActivity.this, MainActivity.class));
             finish();
@@ -70,39 +74,44 @@ public class AddOrderActivity extends AppCompatActivity {
     }
 
     private void checkDuplicatesAndSave() {
-        String itemNum = editTextItemNum.getText().toString().trim();
         String itemDesc = editTextItemDescription.getText().toString().trim();
-        if (TextUtils.isEmpty(itemNum) || TextUtils.isEmpty(itemDesc)) {
-            Toast.makeText(this, "Item # and Description required!", Toast.LENGTH_SHORT).show();
+        String orderName = editTextNameOrder.getText().toString();
+        Countries source = (Countries) SoruceCountries.getSelectedItem();
+        Countries destination = (Countries) DestinationCountries.getSelectedItem();
+
+        if (TextUtils.isEmpty(itemDesc) || TextUtils.isEmpty(orderName)) {
+            Toast.makeText(this, "Please Fill all Fields", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (!TextUtils.isDigitsOnly(itemNum)){
-            Toast.makeText(this,"Item num is must Digit only!",Toast.LENGTH_SHORT).show();
-            return ;
-        }
-        // Build comboKey
-        String comboKey = itemNum + "_" + itemDesc;
 
-        // Query: orders where comboKey == that value
+        if (itemDesc.length() > 30 || orderName.length() > 30) {
+            Toast.makeText(this, "Description or Order Name can't be more than 30 characters", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        // Generate a new order ID using a push key and take its first 10 characters.
+        String newItemId = Objects.requireNonNull(ordersRef.push().getKey()).substring(0, 10);
+        // Build comboKey as newItemId + "_" + itemDesc.
+        String comboKey = newItemId + "_" + itemDesc;
+
+        // Check for duplicates in orders using the comboKey.
         ordersRef.orderByChild("comboKey")
                 .equalTo(comboKey)
                 .addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
                         if (dataSnapshot.exists()) {
-                            // Duplicate found
                             Toast.makeText(AddOrderActivity.this,
                                     "An order with these details already exists!",
                                     Toast.LENGTH_SHORT).show();
                         } else {
-                            // No duplicates => proceed
-                            saveOrder(comboKey);
+                            // Pass newItemId along with comboKey so we can extract description reliably.
+                            saveOrder(comboKey, newItemId);
                         }
                     }
 
                     @Override
                     public void onCancelled(@NonNull DatabaseError databaseError) {
-                        // If we get here, handle the error
                         Toast.makeText(AddOrderActivity.this,
                                 "Error checking duplicates: " + databaseError.getMessage(),
                                 Toast.LENGTH_SHORT).show();
@@ -110,52 +119,54 @@ public class AddOrderActivity extends AppCompatActivity {
                 });
     }
 
-    private void saveOrder(String comboKey) {
-        String itemNum = editTextItemNum.getText().toString().trim();
-        String itemDesc = editTextItemDescription.getText().toString().trim();
-        String source = editTextSource.getText().toString().trim();
-        String destination = editTextDestination.getText().toString().trim();
-        String itemName = editTextNameOrder.getText().toString().trim();
+    private void saveOrder(String comboKey, String newItemId) {
+        // Instead of splitting on "_" (which may appear in itemDesc), use substring.
+        String itemNum = newItemId;  // Use newItemId as item number.
+        // Extract the description from comboKey by taking substring after the first underscore.
+        String itemDesc = comboKey.substring(newItemId.length() + 1);
 
-        // Generate some date/time fields
+        Countries source = (Countries) SoruceCountries.getSelectedItem();
+        Countries destination = (Countries) DestinationCountries.getSelectedItem();
+        String orderName = editTextNameOrder.getText().toString().trim();
+
+        // Generate date/time fields.
         Date now = new Date();
         String orderDate = sdf.format(now);
 
-        // departure date in +1..+2 days
         Calendar cDeparture = Calendar.getInstance();
         cDeparture.setTime(now);
-        cDeparture.add(Calendar.DAY_OF_YEAR, 1 + new Random().nextInt(2));
+        cDeparture.add(Calendar.MINUTE, new Random().nextInt(15)+2);
+        String clock = cDeparture.getTime().toString();
         String dateOfDeparture = sdf.format(cDeparture.getTime());
 
-        // receipt date in +1..+3 hours
+        Calendar cArrival = Calendar.getInstance();
+        cArrival.setTime(cDeparture.getTime());
+        cArrival.add(Calendar.DAY_OF_YEAR, 2 + new Random().nextInt(7));
+        String finalArrivalDate = sdf.format(cArrival.getTime());
+
         Calendar cReceipt = Calendar.getInstance();
-        cReceipt.setTime(now);
+        cReceipt.setTime(cArrival.getTime());
         cReceipt.add(Calendar.HOUR_OF_DAY, 1 + new Random().nextInt(3));
         String dateOfReceipt = sdf.format(cReceipt.getTime());
 
-        // final arrival = departure + 7 days
-        Calendar cArrival = Calendar.getInstance();
-        cArrival.setTime(cDeparture.getTime());
-        cArrival.add(Calendar.DAY_OF_YEAR, 7);
-        String finalArrivalDate = sdf.format(cArrival.getTime());
-
-        // Make an ID for the new order
+        // Generate new order ID and shipment ID.
         String newOrderId = ordersRef.push().getKey();
         if (newOrderId == null) {
             Toast.makeText(this, "Failed to generate Order ID", Toast.LENGTH_SHORT).show();
             return;
         }
+        String shipmentIds = shipmentsRef.push().getKey();
+        if (shipmentIds == null) {
+            Toast.makeText(this, "Failed to generate Shipment ID", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        // Initial status
-        String statusOfOrder = "Pending";
-        List<String> shipmentIds = new ArrayList<>();
-
-        // Build the Order object (with comboKey!)
+        // Build the Order object.
         Order newOrder = new Order(
                 newOrderId,          // orderId
                 comboKey,            // comboKey
                 orderDate,           // orderDate
-                itemName,            // orderName
+                orderName,           // orderName
                 itemNum,             // itemNum
                 itemDesc,            // itemDescription
                 source,              // source
@@ -163,47 +174,41 @@ public class AddOrderActivity extends AppCompatActivity {
                 destination,         // destination
                 finalArrivalDate,    // finalArrivalDate
                 dateOfReceipt,       // dateOfReceipt
-                statusOfOrder,       // statusOfOrder
-                shipmentIds
+                shipmentIds          // shipmentId
         );
 
-        // Save the order
         ordersRef.child(newOrderId).setValue(newOrder)
                 .addOnSuccessListener(aVoid -> {
                     Toast.makeText(AddOrderActivity.this, "Order created!", Toast.LENGTH_SHORT).show();
-                    // Automatically create the shipment
-                    createShipmentForOrder(newOrderId, dateOfDeparture, finalArrivalDate);
-
-                    // Return to main
+                    // Automatically create the shipment.
+                    createShipmentForOrder(shipmentIds, newOrderId, dateOfDeparture, clock, finalArrivalDate);
+                    // Return to main.
                     startActivity(new Intent(AddOrderActivity.this, MainActivity.class));
                     finish();
                 })
                 .addOnFailureListener(e -> {
                     Toast.makeText(AddOrderActivity.this,
                             "Failed to create order: " + e.getMessage(),
-                            Toast.LENGTH_SHORT).show();
+                            Toast.LENGTH_LONG).show();
                 });
     }
 
-    private void createShipmentForOrder(String orderId, String departureDate, String arrivalDate) {
-        // We'll just mirror the date fields
-        String newShipmentId = shipmentsRef.push().getKey();
-        if (newShipmentId == null) return;
-
+    private void createShipmentForOrder(String shipmentIds, String orderId, String departureDate, String clock, String arrivalDate) {
+        // Create a new Shipment object. The Shipment constructor sets initial status (e.g., PENDING).
         Shipment newShipment = new Shipment(
-                newShipmentId,
+                shipmentIds,
                 orderId,
                 departureDate,
-                arrivalDate,
-                "Pending" // initial status
+                clock,
+                arrivalDate
         );
-
-        shipmentsRef.child(newShipmentId).setValue(newShipment)
+        Log.e("Print Status Shipment", newShipment.getStatusOfShipment().toString());
+        shipmentsRef.child(shipmentIds).setValue(newShipment)
                 .addOnSuccessListener(aVoid -> {
-                    // The ShipmentListActivity will see it in real-time
+                    Toast.makeText(this, "Success inserting Shipment Data", Toast.LENGTH_LONG).show();
                 })
                 .addOnFailureListener(e -> {
-                    // Log or toast if needed
+                    Toast.makeText(this, "Failed inserting Shipment Data", Toast.LENGTH_LONG).show();
                 });
     }
 }
